@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Narrative Visualization: Housing Values vs. Crime Rates</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f6f9;
+            color: #2c3e50;
+        }
+        #container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 { margin-bottom: 5px; color: #1a252f; }
+        .subtitle { color: #7f8c8d; font-size: 1.05em; }
+        
+        /* Navigation Controls */
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            background: #eef2f5;
+            padding: 10px 20px;
+            border-radius: 6px;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #fff;
+            background-color: #2980b9;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #1c5980; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
+        #scene-indicator {
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        /* Narrative Banner */
+        #narrative-text {
+            min-height: 60px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 5px solid #2980b9;
+            margin-bottom: 20px;
+            border-radius: 0 4px 4px 0;
+            line-height: 1.5;
+        }
+
+        /* Chart Styling */
+        #chart { position: relative; }
+        .circle {
+            stroke: #2c3e50;
+            stroke-width: 1px;
+            opacity: 0.75;
+            transition: opacity 0.2s;
+        }
+        .circle:hover {
+            opacity: 1;
+            stroke-width: 2px;
+        }
+
+        #tooltip {
+            position: absolute;
+            opacity: 0;
+            background-color: rgba(44, 62, 80, 0.95);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+
+        .annotation-note-title {
+            font-weight: bold;
+            fill: #2980b9;
+        }
+        .annotation-note-label {
+            fill: #555;
+            font-size: 0.85em;
+        }
+        .annotation-subject {
+            stroke: #2980b9;
+            stroke-width: 1.5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <header>
+        <h1>Urban Housing Values & Crime Rates</h1>
+        <div class="subtitle">Analyzing the Impact of Crime Rates on Median Neighborhood Home Values</div>
+    </header>
+
+    <div id="controls">
+        <button id="prev-btn" onclick="triggerSceneChange(-1)" disabled>Previous</button>
+        <span id="scene-indicator">Scene 1 of 3</span>
+        <button id="next-btn" onclick="triggerSceneChange(1)">Next</button>
+    </div>
+
+    <div id="narrative-text"></div>
+
+    <div id="chart"></div>
+    <div id="tooltip"></div>
+</div>
+
+<script>
+    // ==========================================
+    // DATASET
+    // ==========================================
+    const data = [
+        { neighborhood: "Suburban West", crimeRate: 0.03, medianVal: 50.0, lowIncome: 2.9 },
+        { neighborhood: "Beacon Hill", crimeRate: 0.01, medianVal: 48.8, lowIncome: 3.1 },
+        { neighborhood: "Newton Edge", crimeRate: 0.05, medianVal: 45.0, lowIncome: 3.7 },
+        { neighborhood: "Brookline South", crimeRate: 0.12, medianVal: 34.7, lowIncome: 5.2 },
+        { neighborhood: "Cambridge East", crimeRate: 0.25, medianVal: 28.0, lowIncome: 6.8 },
+        { neighborhood: "Quincy Park", crimeRate: 0.50, medianVal: 24.0, lowIncome: 8.5 },
+        { neighborhood: "Dorchester North", crimeRate: 1.20, medianVal: 21.2, lowIncome: 11.4 },
+        { neighborhood: "South Boston", crimeRate: 3.65, medianVal: 19.3, lowIncome: 15.2 },
+        { neighborhood: "Roxbury Center", crimeRate: 8.98, medianVal: 13.1, lowIncome: 21.0 },
+        { neighborhood: "Mattapan East", crimeRate: 14.33, medianVal: 10.4, lowIncome: 24.3 },
+        { neighborhood: "Urban Core Central", crimeRate: 25.65, medianVal: 8.8, lowIncome: 28.2 },
+        { neighborhood: "Industrial Hub", crimeRate: 38.35, medianVal: 5.0, lowIncome: 30.5 }
+    ];
+
+    // ==========================================
+    // STATE PARAMETERS
+    // ==========================================
+    let currentScene = 0; // State parameter controlling active scene
+    const totalScenes = 3;
+
+    // Canvas Dimensions
+    const margin = {top: 40, right: 40, bottom: 60, left: 60};
+    const width = 840 - margin.left - margin.right;
+    const height = 450 - margin.top - margin.bottom;
+
+    // SVG Initialization
+    const svg = d3.select("#chart")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Scales
+    const xScale = d3.scaleLinear().domain([0, 42]).range([0, width]);
+    const yScale = d3.scaleLinear().domain([0, 55]).range([height, 0]);
+    const colorScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 40]);
+
+    // Axes
+    svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale));
+
+    svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height + 45)
+        .attr("text-anchor", "middle")
+        .style("font-size", "0.9em")
+        .text("Per Capita Crime Rate (per 1,000 residents)");
+
+    svg.append("g").call(d3.axisLeft(yScale));
+
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -40)
+        .attr("text-anchor", "middle")
+        .style("font-size", "0.9em")
+        .text("Median Home Value ($1,000s)");
+
+    const tooltip = d3.select("#tooltip");
+
+    // ==========================================
+    // SCENE RENDER FUNCTIONS
+    // ==========================================
+    function renderScene(sceneIndex) {
+        // Update Controls
+        document.getElementById("scene-indicator").innerText = `Scene ${sceneIndex + 1} of ${totalScenes}`;
+        document.getElementById("prev-btn").disabled = (sceneIndex === 0);
+        document.getElementById("next-btn").disabled = (sceneIndex === totalScenes - 1);
+
+        // Clear Annotations
+        svg.selectAll(".annotation-group").remove();
+
+        if (sceneIndex === 0) {
+            // SCENE 1: Low-Crime Premium Neighborhoods
+            d3.select("#narrative-text").html(`
+                <strong>Scene 1: Premium Neighborhoods (Crime Rate < 1.0)</strong><br>
+                In low-crime areas, median home values vary widely (from $20,000 to $50,000+), showing that home values in safe areas depend primarily on factors other than safety.
+            `);
+
+            renderDataPoints(d => d.crimeRate < 1.0);
+
+            const annotations = [{
+                note: {
+                    title: "High Value Ceiling",
+                    label: "Near-zero crime rates allow home values to reach peak values ($50k+)."
+                },
+                x: xScale(0.03),
+                y: yScale(50.0),
+                dx: 60,
+                dy: 20
+            }];
+            applyAnnotations(annotations);
+
+        } else if (sceneIndex === 1) {
+            // SCENE 2: Moderate Crime Impact
+            d3.select("#narrative-text").html(`
+                <strong>Scene 2: Transition Zone (Crime Rate 1.0 - 10.0)</strong><br>
+                As crime rates rise into moderate levels, home values drop sharply below $20,000. Moderate crime places a strong ceiling on property values.
+            `);
+
+            renderDataPoints(d => d.crimeRate >= 1.0 && d.crimeRate <= 10.0);
+
+            const annotations = [{
+                note: {
+                    title: "Steep Valuation Drop",
+                    label: "Home values stabilize below $20k once crime exceeds 3 per 1,000."
+                },
+                x: xScale(3.65),
+                y: yScale(19.3),
+                dx: 50,
+                dy: -30
+            }];
+            applyAnnotations(annotations);
+
+        } else if (sceneIndex === 2) {
+            // SCENE 3: High Crime & Free-Form Exploration
+            d3.select("#narrative-text").html(`
+                <strong>Scene 3: High-Crime Districts & Complete Landscape (Crime Rate > 10.0)</strong><br>
+                Areas with severe crime rates (>10.0) consistently display the lowest property valuations ($5k - $10k).<br>
+                <em>Free-Form Mode: Hover over any point to inspect detailed neighborhood statistics.</em>
+            `);
+
+            renderDataPoints(d => true);
+
+            const annotations = [{
+                note: {
+                    title: "Depressed Valuation Floor",
+                    label: "High-crime districts show severe suppression of property values."
+                },
+                x: xScale(38.35),
+                y: yScale(5.0),
+                dx: -60,
+                dy: -40
+            }];
+            applyAnnotations(annotations);
+        }
+    }
+
+    // Render Function
+    function renderDataPoints(filterFn) {
+        const filteredData = data.filter(filterFn);
+
+        const circles = svg.selectAll(".circle")
+            .data(filteredData, d => d.neighborhood);
+
+        // EXIT
+        circles.exit()
+            .transition()
+            .duration(500)
+            .attr("r", 0)
+            .remove();
+
+        // ENTER + UPDATE
+        circles.enter()
+            .append("circle")
+            .attr("class", "circle")
+            .attr("cx", d => xScale(d.crimeRate))
+            .attr("cy", d => yScale(d.medianVal))
+            .attr("r", 0)
+            .attr("fill", d => colorScale(d.crimeRate))
+            .on("mouseover", (event, d) => {
+                tooltip.style("opacity", 1)
+                       .html(`
+                           <strong>${d.neighborhood}</strong><br/>
+                           Crime Rate: ${d.crimeRate} / 1k<br/>
+                           Median Value: $${d.medianVal}k<br/>
+                           Low Income Pop: ${d.lowIncome}%
+                       `)
+                       .style("left", (event.pageX + 10) + "px")
+                       .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0))
+            .merge(circles)
+            .transition()
+            .duration(750)
+            .attr("cx", d => xScale(d.crimeRate))
+            .attr("cy", d => yScale(d.medianVal))
+            .attr("r", 8);
+    }
+
+    // Annotations Application
+    function applyAnnotations(annotationList) {
+        const makeAnnotations = d3.annotation()
+            .type(d3.annotationLabel)
+            .annotations(annotationList);
+
+        svg.append("g")
+            .attr("class", "annotation-group")
+            .call(makeAnnotations);
+    }
+
+    // ==========================================
+    // TRIGGERS & STATE UPDATE
+    // ==========================================
+    function triggerSceneChange(direction) {
+        currentScene += direction;
+        if (currentScene < 0) currentScene = 0;
+        if (currentScene >= totalScenes) currentScene = totalScenes - 1;
+
+        renderScene(currentScene);
+    }
+
+    // Initial Execution
+    renderScene(currentScene);
+</script>
+</body>
+</html>
