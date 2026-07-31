@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Narrative Visualization: Housing Values vs. Crime Rates</title>
+    <title>2025 U.S. Housing Prices vs. Crime Rates</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
 
@@ -75,14 +75,15 @@
         .circle {
             stroke: #2c3e50;
             stroke-width: 1px;
-            opacity: 0.75;
+            opacity: 0.8;
             transition: opacity 0.2s;
         }
         .circle:hover {
             opacity: 1;
-            stroke-width: 2px;
+            stroke-width: 2.5px;
         }
 
+        /* Tooltip */
         #tooltip {
             position: absolute;
             opacity: 0;
@@ -96,6 +97,7 @@
             z-index: 10;
         }
 
+        /* Annotations */
         .annotation-note-title {
             font-weight: bold;
             fill: #2980b9;
@@ -114,9 +116,9 @@
 
 <div id="container">
     <header>
-        <h1>Urban Housing Values & Crime Rates in 1978</h1>
-        <div class="subtitle">Analyzing the Impact of Crime Rates on Median Neighborhood Home Values</div>
-        <div class="subtitle">By: Shaunak Marathe - CS 416 Data Visualization</div>
+        <h1>2025 U.S. Housing Prices & Crime Rates</h1>
+        <div class="subtitle">Analyzing Metro Area Median Home Sale Prices vs. Overall Crime Rates</div>
+        <div class="subtitle">By Shaunak Marathe CS 416 - Data Visualization</div>
     </header>
 
     <div id="controls">
@@ -133,31 +135,34 @@
 
 <script>
     // ==========================================
-    // DATASET
+    // 1. DATASET (2025 U.S. METRO REAL ESTATE & CRIME DATA)
     // ==========================================
     const data = [
-        { neighborhood: "Suburban West", crimeRate: 0.03, medianVal: 50.0, lowIncome: 2.9 },
-        { neighborhood: "Beacon Hill", crimeRate: 0.01, medianVal: 48.8, lowIncome: 3.1 },
-        { neighborhood: "Newton Edge", crimeRate: 0.05, medianVal: 45.0, lowIncome: 3.7 },
-        { neighborhood: "Brookline South", crimeRate: 0.12, medianVal: 34.7, lowIncome: 5.2 },
-        { neighborhood: "Cambridge East", crimeRate: 0.25, medianVal: 28.0, lowIncome: 6.8 },
-        { neighborhood: "Quincy Park", crimeRate: 0.50, medianVal: 24.0, lowIncome: 8.5 },
-        { neighborhood: "Dorchester North", crimeRate: 1.20, medianVal: 21.2, lowIncome: 11.4 },
-        { neighborhood: "South Boston", crimeRate: 3.65, medianVal: 19.3, lowIncome: 15.2 },
-        { neighborhood: "Roxbury Center", crimeRate: 8.98, medianVal: 13.1, lowIncome: 21.0 },
-        { neighborhood: "Mattapan East", crimeRate: 14.33, medianVal: 10.4, lowIncome: 24.3 },
-        { neighborhood: "Urban Core Central", crimeRate: 25.65, medianVal: 8.8, lowIncome: 28.2 },
-        { neighborhood: "Industrial Hub", crimeRate: 38.35, medianVal: 5.0, lowIncome: 30.5 }
+        { city: "San Jose, CA", crimeRate: 31.8, medianVal: 1626, region: "West" },
+        { city: "San Francisco, CA", crimeRate: 52.4, medianVal: 1181, region: "West" },
+        { city: "Los Angeles, CA", crimeRate: 36.8, medianVal: 975, region: "West" },
+        { city: "San Diego, CA", crimeRate: 35.8, medianVal: 895, region: "West" },
+        { city: "Seattle, WA", crimeRate: 57.8, medianVal: 728, region: "West" },
+        { city: "Boston, MA", crimeRate: 26.5, medianVal: 723, region: "Northeast" },
+        { city: "New York, NY", crimeRate: 30.4, medianVal: 651, region: "Northeast" },
+        { city: "Virginia Beach, VA", crimeRate: 28.4, medianVal: 425, region: "South" },
+        { city: "Phoenix, AZ", crimeRate: 33.0, medianVal: 440, region: "West" },
+        { city: "Charlotte, NC", crimeRate: 46.0, medianVal: 395, region: "South" },
+        { city: "Chicago, IL", crimeRate: 93.1, medianVal: 350, region: "Midwest" },
+        { city: "St. Louis, MO", crimeRate: 88.2, medianVal: 225, region: "Midwest" },
+        { city: "Detroit, MI", crimeRate: 92.1, medianVal: 215, region: "Midwest" },
+        { city: "Cleveland, OH", crimeRate: 96.0, medianVal: 214, region: "Midwest" },
+        { city: "Memphis, TN", crimeRate: 94.0, medianVal: 195, region: "South" }
     ];
 
     // ==========================================
-    // STATE PARAMETERS
+    // 2. STATE PARAMETERS
     // ==========================================
     let currentScene = 0; // State parameter controlling active scene
     const totalScenes = 3;
 
     // Canvas Dimensions
-    const margin = {top: 40, right: 40, bottom: 60, left: 60};
+    const margin = {top: 40, right: 40, bottom: 60, left: 70};
     const width = 840 - margin.left - margin.right;
     const height = 450 - margin.top - margin.bottom;
 
@@ -170,9 +175,9 @@
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Scales
-    const xScale = d3.scaleLinear().domain([0, 42]).range([0, width]);
-    const yScale = d3.scaleLinear().domain([0, 55]).range([height, 0]);
-    const colorScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([0, 40]);
+    const xScale = d3.scaleLinear().domain([20, 105]).range([0, width]);
+    const yScale = d3.scaleLinear().domain([100, 1750]).range([height, 0]);
+    const colorScale = d3.scaleSequential(d3.interpolateYlOrRd).domain([20, 100]);
 
     // Axes
     svg.append("g")
@@ -184,22 +189,22 @@
         .attr("y", height + 45)
         .attr("text-anchor", "middle")
         .style("font-size", "0.9em")
-        .text("Per Capita Crime Rate (per 1,000 residents)");
+        .text("Total Crime Rate in 2025 (Incidents per 1,000 residents)");
 
-    svg.append("g").call(d3.axisLeft(yScale));
+    svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `$${d}k`));
 
     svg.append("text")
         .attr("transform", "rotate(-90)")
         .attr("x", -height / 2)
-        .attr("y", -40)
+        .attr("y", -50)
         .attr("text-anchor", "middle")
         .style("font-size", "0.9em")
-        .text("Median Home Value ($1,000s)");
+        .text("2025 Median Home Sale Price ($1,000s)");
 
     const tooltip = d3.select("#tooltip");
 
     // ==========================================
-    // SCENE RENDER FUNCTIONS
+    // 3. SCENE RENDER FUNCTIONS
     // ==========================================
     function renderScene(sceneIndex) {
         // Update Controls
@@ -211,65 +216,65 @@
         svg.selectAll(".annotation-group").remove();
 
         if (sceneIndex === 0) {
-            // SCENE 1: Low-Crime Premium Neighborhoods
+            // SCENE 1: Premium Low-Crime Metros
             d3.select("#narrative-text").html(`
-                <strong>Scene 1: Premium Neighborhoods (Crime Rate < 1.0)</strong><br>
-                In low-crime areas, median home values vary widely (from $20,000 to $50,000+), showing that home values in safe areas depend primarily on factors other than safety.
+                <strong>Scene 1: High-Price, Low-to-Moderate Crime Metros</strong><br>
+                In 2025, coastal and tech hub markets like San Jose, San Francisco, Los Angeles, and Boston maintained low-to-moderate crime rates, commanding peak median home prices ranging from $700,000 to over $1.6 Million.
             `);
 
-            renderDataPoints(d => d.crimeRate < 1.0);
+            renderDataPoints(d => d.medianVal >= 650);
 
             const annotations = [{
                 note: {
-                    title: "High Value Ceiling",
-                    label: "Near-zero crime rates allow home values to reach peak values ($50k+)."
+                    title: "Nation's Highest Valuation",
+                    label: "San Jose, CA leads the 2025 U.S. market at $1.626M median price."
                 },
-                x: xScale(0.03),
-                y: yScale(50.0),
+                x: xScale(31.8),
+                y: yScale(1626),
                 dx: 60,
                 dy: 20
             }];
             applyAnnotations(annotations);
 
         } else if (sceneIndex === 1) {
-            // SCENE 2: Moderate Crime Impact
+            // SCENE 2: Mid-Tier Markets
             d3.select("#narrative-text").html(`
-                <strong>Scene 2: Transition Zone (Crime Rate 1.0 - 10.0)</strong><br>
-                As crime rates rise into moderate levels, home values drop sharply below $20,000. Moderate crime places a strong ceiling on property values.
+                <strong>Scene 2: Mid-Tier Regional Hubs ($350k – $500k)</strong><br>
+                Expanding Sunbelt and East Coast metros like Phoenix, Charlotte, and Virginia Beach reflect moderate crime rates paired with accessible mid-tier median home values near the national median ($370k–$450k).
             `);
 
-            renderDataPoints(d => d.crimeRate >= 1.0 && d.crimeRate <= 10.0);
+            renderDataPoints(d => d.medianVal >= 350 && d.medianVal < 650);
 
             const annotations = [{
                 note: {
-                    title: "Steep Valuation Drop",
-                    label: "Home values stabilize below $20k once crime exceeds 3 per 1,000."
+                    title: "Mid-Market Cluster",
+                    label: "Sunbelt metros cluster near the U.S. median home price ($370k-$440k)."
                 },
-                x: xScale(3.65),
-                y: yScale(19.3),
-                dx: 50,
+                x: xScale(33.0),
+                y: yScale(440),
+                dx: 60,
                 dy: -30
             }];
             applyAnnotations(annotations);
 
         } else if (sceneIndex === 2) {
-            // SCENE 3: High Crime & Free-Form Exploration
+            // SCENE 3: High Crime & Complete 2025 Landscape
             d3.select("#narrative-text").html(`
-                <strong>Scene 3: High-Crime Districts & Complete Landscape (Crime Rate > 10.0)</strong><br>
-                Areas with severe crime rates (>10.0) consistently display the lowest property valuations ($5k - $10k).<br>
-                <em>Free-Form Mode: Hover over any point to inspect detailed neighborhood statistics.</em>
+                <strong>Scene 3: Higher Crime & Value Housing Markets</strong><br>
+                Metros facing elevated crime statistics (e.g., Memphis, Detroit, Cleveland) display significantly lower median home prices ($190k–$230k).<br>
+                <em>Free-Form Mode: Hover over any point across all 2025 U.S. cities to explore statistics.</em>
             `);
 
-            renderDataPoints(d => true);
+            renderDataPoints(d => true); // All cities
 
             const annotations = [{
                 note: {
-                    title: "Depressed Valuation Floor",
-                    label: "High-crime districts show severe suppression of property values."
+                    title: "Affordability Floor",
+                    label: "Cities with high crime metrics show median home prices under $230k."
                 },
-                x: xScale(38.35),
-                y: yScale(5.0),
-                dx: -60,
+                x: xScale(94.0),
+                y: yScale(195),
+                dx: -70,
                 dy: -40
             }];
             applyAnnotations(annotations);
@@ -281,7 +286,7 @@
         const filteredData = data.filter(filterFn);
 
         const circles = svg.selectAll(".circle")
-            .data(filteredData, d => d.neighborhood);
+            .data(filteredData, d => d.city);
 
         // EXIT
         circles.exit()
@@ -301,12 +306,12 @@
             .on("mouseover", (event, d) => {
                 tooltip.style("opacity", 1)
                        .html(`
-                           <strong>${d.neighborhood}</strong><br/>
-                           Crime Rate: ${d.crimeRate} / 1k<br/>
-                           Median Value: $${d.medianVal}k<br/>
-                           Low Income Pop: ${d.lowIncome}%
+                           <strong>${d.city}</strong><br/>
+                           Region: ${d.region}<br/>
+                           2025 Median Home Price: $${d.medianVal}k<br/>
+                           Total Crime Rate: ${d.crimeRate} / 1k residents
                        `)
-                       .style("left", (event.pageX + 10) + "px")
+                       .style("left", (event.pageX + 12) + "px")
                        .style("top", (event.pageY - 28) + "px");
             })
             .on("mouseout", () => tooltip.style("opacity", 0))
@@ -315,7 +320,7 @@
             .duration(750)
             .attr("cx", d => xScale(d.crimeRate))
             .attr("cy", d => yScale(d.medianVal))
-            .attr("r", 8);
+            .attr("r", 9);
     }
 
     // Annotations Application
@@ -330,7 +335,7 @@
     }
 
     // ==========================================
-    // TRIGGERS & STATE UPDATE
+    // 4. TRIGGERS & STATE UPDATE
     // ==========================================
     function triggerSceneChange(direction) {
         currentScene += direction;
